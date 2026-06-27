@@ -4,7 +4,9 @@ import {
   CheckCircle2,
   ChevronRight,
   ClipboardList,
+  LayoutTemplate,
   MessageSquareText,
+  MonitorSmartphone,
   RefreshCcw,
   Send,
   Settings2,
@@ -26,12 +28,13 @@ import type {
   Service
 } from "./types/api";
 
-const businessStorageKey = "zo-expert.business";
-const consultationsStorageKey = "zo-expert.consultations";
+const businessStorageKey = "zo-expert.template.v2.business";
+const consultationsStorageKey = "zo-expert.template.v2.consultations";
 
 type BusinessDraft = {
   businessName: string;
   ownerName: string;
+  vertical: string;
   summary: string;
   targetCustomer: string;
   tone: string;
@@ -41,6 +44,14 @@ type BusinessDraft = {
   escalationRules: string;
 };
 
+type AppPart = "admin" | "user";
+
+type SetupItem = {
+  label: string;
+  complete: boolean;
+  hint: string;
+};
+
 export default function App() {
   const seedQuery = useQuery({
     queryKey: ["demo-seed"],
@@ -48,11 +59,13 @@ export default function App() {
   });
 
   const seed = seedQuery.data;
+  const [activePart, setActivePart] = useState<AppPart>("admin");
   const [business, setBusiness] = useState<BusinessProfile | null>(null);
   const [consultations, setConsultations] = useState<ConsultationResult[]>([]);
   const [brief, setBrief] = useState<OwnerBrief | null>(null);
   const [ownerSnapshot, setOwnerSnapshot] = useState<OwnerProfileResponse["ownerProfile"] | null>(null);
   const [question, setQuestion] = useState("");
+  const [templateStatus, setTemplateStatus] = useState<"blank" | "draft" | "sample">("blank");
 
   useEffect(() => {
     if (!seed || business) {
@@ -65,6 +78,7 @@ export default function App() {
     setBusiness(savedBusiness ?? seed.business);
     setConsultations(savedConsultations ?? seed.consultations);
     setBrief(seed.brief);
+    setTemplateStatus(savedBusiness ? "draft" : "blank");
   }, [business, seed]);
 
   useEffect(() => {
@@ -74,16 +88,18 @@ export default function App() {
   }, [business]);
 
   useEffect(() => {
-    if (consultations.length) {
-      localStorage.setItem(consultationsStorageKey, JSON.stringify(consultations));
-    }
+    localStorage.setItem(consultationsStorageKey, JSON.stringify(consultations));
   }, [consultations]);
+
+  const setupItems = useMemo(() => (business ? getSetupItems(business) : []), [business]);
+  const setupComplete = setupItems.every((item) => item.complete);
 
   const consultMutation = useMutation({
     mutationFn: consultOwnerProxy,
     onSuccess: (result) => {
       setConsultations((current) => [result, ...current]);
       setQuestion("");
+      setActivePart("user");
     }
   });
 
@@ -106,14 +122,20 @@ export default function App() {
     return (
       <main className="loading-screen">
         <Sparkles className="spin-soft" size={28} />
-        <span>Loading Zo Expert demo seed...</span>
+        <span>Loading Zo Expert template...</span>
       </main>
     );
   }
 
+  const saveBusiness = (nextBusiness: BusinessProfile) => {
+    setBusiness(nextBusiness);
+    setTemplateStatus(isBlankTemplate(nextBusiness) ? "blank" : "draft");
+    setOwnerSnapshot(null);
+  };
+
   const submitQuestion = (nextQuestion = question) => {
     const trimmed = nextQuestion.trim();
-    if (!trimmed || consultMutation.isPending) {
+    if (!trimmed || consultMutation.isPending || !setupComplete) {
       return;
     }
 
@@ -124,13 +146,26 @@ export default function App() {
     });
   };
 
-  const resetDemo = () => {
+  const resetTemplate = () => {
     setBusiness(seed.business);
-    setConsultations(seed.consultations);
+    setConsultations([]);
     setBrief(seed.brief);
     setOwnerSnapshot(null);
+    setQuestion("");
+    setTemplateStatus("blank");
+    setActivePart("admin");
     localStorage.removeItem(businessStorageKey);
     localStorage.removeItem(consultationsStorageKey);
+  };
+
+  const loadSample = () => {
+    setBusiness(seed.sampleBusiness);
+    setConsultations(seed.sampleConsultations);
+    setBrief(seed.sampleBrief);
+    setOwnerSnapshot(null);
+    setQuestion("");
+    setTemplateStatus("sample");
+    setActivePart("admin");
   };
 
   const updateReviewState = (id: string, reviewState: ConsultationReviewState) => {
@@ -139,138 +174,127 @@ export default function App() {
     );
   };
 
+  const templateName = business.businessName || "Untitled owner expert";
+  const statusLabel =
+    templateStatus === "sample" ? "Sample loaded" : setupComplete ? "Ready to test" : "Blank template";
+
   return (
     <div className="app-shell">
-      <Sidebar />
+      <Sidebar activePart={activePart} onPartChange={setActivePart} />
 
       <main className="workspace">
         <header className="topbar">
           <div>
-            <p className="microcopy">AI consultation proxy</p>
-            <h1>{business.businessName}</h1>
+            <p className="microcopy">Template builder</p>
+            <h1>Create owner expert template</h1>
           </div>
           <div className="topbar-actions">
-            <span className="status-pill">
+            <span className={`status-pill ${setupComplete ? "ready" : ""}`}>
               <CheckCircle2 size={15} />
-              Demo seed active
+              {statusLabel}
             </span>
-            <button className="ghost-button" onClick={resetDemo} type="button">
+            <button className="ghost-button" onClick={loadSample} type="button">
+              <LayoutTemplate size={16} />
+              Load sample
+            </button>
+            <button className="ghost-button" onClick={resetTemplate} type="button">
               <RefreshCcw size={16} />
-              Reset
+              Reset blank
             </button>
           </div>
         </header>
 
-        <section className="hero-strip">
+        <section className="template-hero">
           <div>
-            <h2>Scale the owner's judgment without losing control.</h2>
+            <h2>Admin builds the business brain. Users get a simple expert portal.</h2>
             <p>
-              Customers and staff can ask practical questions. Zo Expert answers from Alicia's
-              business knowledge when safe, then escalates policy exceptions, safety issues, and
-              missing-context decisions.
+              Start from a blank template, define the owner&apos;s services, voice, policies, FAQs,
+              and escalation rules, then preview how customers or staff will consult it.
             </p>
           </div>
-          <div className="hero-metrics" aria-label="Demo metrics">
-            <Metric label="Answered" value={currentBrief.answeredCount.toString()} />
-            <Metric label="Escalated" value={currentBrief.escalatedCount.toString()} />
-            <Metric label="Knowledge gaps" value={currentBrief.knowledgeGaps.length.toString()} />
+          <div className="hero-metrics" aria-label="Template setup metrics">
+            <Metric label="Services" value={business.services.length.toString()} />
+            <Metric label="FAQs" value={business.faqs.length.toString()} />
+            <Metric label="Escalation rules" value={business.escalationRules.length.toString()} />
           </div>
         </section>
 
-        <div className="main-grid">
-          <section className="left-rail" aria-label="Owner setup and knowledge base">
-            <OwnerSetup
+        <div className="part-switcher" aria-label="App parts">
+          <button
+            className={activePart === "admin" ? "selected" : ""}
+            onClick={() => setActivePart("admin")}
+            type="button"
+          >
+            <UserRoundCog size={16} />
+            Admin workspace
+          </button>
+          <button
+            className={activePart === "user" ? "selected" : ""}
+            onClick={() => setActivePart("user")}
+            type="button"
+          >
+            <MonitorSmartphone size={16} />
+            User portal
+          </button>
+        </div>
+
+        <div className="template-grid">
+          <section className={activePart === "admin" ? "part-panel active" : "part-panel"} id="admin">
+            <AdminWorkspace
               business={business}
-              ownerSnapshot={ownerSnapshot}
               isBuilding={ownerProfileMutation.isPending}
-              onSave={setBusiness}
               onBuild={() => ownerProfileMutation.mutate(business)}
+              onSave={saveBusiness}
+              ownerSnapshot={ownerSnapshot}
+              setupItems={setupItems}
             />
-            <KnowledgeBase business={business} />
           </section>
 
-          <section className="consultation-surface" id="consultation">
-            <div className="section-heading">
-              <div>
-                <p className="microcopy">Consultation chat</p>
-                <h2>Ask the owner's proxy</h2>
-              </div>
-              <span className="model-tag">Safe answer or escalation</span>
-            </div>
-
-            <div className="sample-row" aria-label="Sample questions">
-              {seed.sampleQuestions.map((sample) => (
-                <button
-                  className="sample-chip"
-                  key={sample}
-                  onClick={() => submitQuestion(sample)}
-                  type="button"
-                >
-                  {sample}
-                </button>
-              ))}
-            </div>
-
-            <div className="composer">
-              <textarea
-                aria-label="Ask a consultation question"
-                onChange={(event) => setQuestion(event.target.value)}
-                onKeyDown={(event) => {
-                  if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-                    submitQuestion();
-                  }
-                }}
-                placeholder="Ask as a customer, prospect, or staff member..."
-                value={question}
-              />
-              <button
-                className="primary-button"
-                disabled={!question.trim() || consultMutation.isPending}
-                onClick={() => submitQuestion()}
-                type="button"
-              >
-                <Send size={16} />
-                {consultMutation.isPending ? "Consulting..." : "Ask Zo Expert"}
-              </button>
-            </div>
-
-            <div className="consultation-list" aria-label="Consultation results">
-              {consultMutation.isError ? (
-                <div className="error-banner">
-                  The API call failed. Start the local backend with <code>npm run dev</code>.
-                </div>
-              ) : null}
-              {consultations.map((item) => (
-                <ConsultationCard
-                  consultation={item}
-                  key={item.id}
-                  onReviewChange={updateReviewState}
-                />
-              ))}
-            </div>
+          <section className={activePart === "user" ? "part-panel active" : "part-panel"} id="user-portal">
+            <UserPortal
+              business={business}
+              consultations={consultations}
+              error={consultMutation.isError}
+              isPending={consultMutation.isPending}
+              onQuestionChange={setQuestion}
+              onReviewChange={updateReviewState}
+              onSubmit={submitQuestion}
+              question={question}
+              sampleQuestions={seed.sampleQuestions}
+              setupComplete={setupComplete}
+              setupItems={setupItems}
+              templateName={templateName}
+            />
           </section>
 
-          <section className="right-rail" id="brief">
+          <aside className="template-side" id="brief">
             <OwnerBriefPanel
               brief={currentBrief}
               isRefreshing={briefMutation.isPending}
               onRefresh={() => briefMutation.mutate({ consultations })}
+              ownerName={business.ownerName}
             />
-            <EscalationQueue consultations={consultations} />
-          </section>
+            <SetupChecklist setupItems={setupItems} />
+          </aside>
         </div>
       </main>
     </div>
   );
 }
 
-function Sidebar() {
+function Sidebar({
+  activePart,
+  onPartChange
+}: {
+  activePart: AppPart;
+  onPartChange: (part: AppPart) => void;
+}) {
   const items = [
-    { label: "Owner Setup", icon: UserRoundCog, href: "#owner-setup" },
-    { label: "Knowledge Base", icon: BookOpen, href: "#knowledge-base" },
-    { label: "Consultation", icon: MessageSquareText, href: "#consultation" },
-    { label: "Escalations", icon: AlertTriangle, href: "#escalations" },
-    { label: "Owner Brief", icon: ClipboardList, href: "#brief" }
+    { label: "Templates", icon: LayoutTemplate, href: "#admin", part: "admin" as const },
+    { label: "Admin Setup", icon: UserRoundCog, href: "#admin", part: "admin" as const },
+    { label: "User Portal", icon: MonitorSmartphone, href: "#user-portal", part: "user" as const },
+    { label: "Conversations", icon: MessageSquareText, href: "#user-portal", part: "user" as const },
+    { label: "Brief", icon: ClipboardList, href: "#brief", part: "user" as const }
   ];
 
   return (
@@ -279,7 +303,7 @@ function Sidebar() {
         <div className="brand-mark">Z</div>
         <div>
           <strong>Zo Expert</strong>
-          <span>Owner proxy</span>
+          <span>Template builder</span>
         </div>
       </div>
 
@@ -287,7 +311,12 @@ function Sidebar() {
         {items.map((item) => {
           const Icon = item.icon;
           return (
-            <a href={item.href} key={item.label}>
+            <a
+              className={activePart === item.part ? "active" : ""}
+              href={item.href}
+              key={item.label}
+              onClick={() => onPartChange(item.part)}
+            >
               <Icon size={17} />
               <span>{item.label}</span>
               <ChevronRight size={15} />
@@ -297,22 +326,24 @@ function Sidebar() {
       </nav>
 
       <div className="sidebar-note">
-        <p>Built for appointment-led SMEs where the owner is still the router, memory, and decision engine.</p>
+        <p>Use Admin to build a reusable owner expert. Use User Portal to test what customers or staff will see.</p>
       </div>
     </aside>
   );
 }
 
-function OwnerSetup({
+function AdminWorkspace({
   business,
   ownerSnapshot,
   isBuilding,
+  setupItems,
   onSave,
   onBuild
 }: {
   business: BusinessProfile;
   ownerSnapshot: OwnerProfileResponse["ownerProfile"] | null;
   isBuilding: boolean;
+  setupItems: SetupItem[];
   onSave: (business: BusinessProfile) => void;
   onBuild: () => void;
 }) {
@@ -327,130 +358,320 @@ function OwnerSetup({
   };
 
   return (
-    <section className="panel" id="owner-setup">
-      <div className="section-heading compact">
-        <div>
-          <p className="microcopy">Owner setup</p>
-          <h2>Business brain</h2>
+    <div className="admin-layout">
+      <section className="panel admin-form" id="owner-setup">
+        <div className="section-heading compact">
+          <div>
+            <p className="microcopy">Admin workspace</p>
+            <h2>Owner expert template</h2>
+          </div>
+          <Settings2 size={18} />
         </div>
-        <Settings2 size={18} />
-      </div>
 
-      <label>
-        Business
-        <input
-          onChange={(event) => setDraft({ ...draft, businessName: event.target.value })}
-          value={draft.businessName}
-        />
-      </label>
-      <label>
-        Owner
-        <input
-          onChange={(event) => setDraft({ ...draft, ownerName: event.target.value })}
-          value={draft.ownerName}
-        />
-      </label>
-      <label>
-        Summary
-        <textarea
-          className="small-textarea"
-          onChange={(event) => setDraft({ ...draft, summary: event.target.value })}
-          value={draft.summary}
-        />
-      </label>
-      <label>
-        Tone
-        <textarea
-          className="small-textarea"
-          onChange={(event) => setDraft({ ...draft, tone: event.target.value })}
-          value={draft.tone}
-        />
-      </label>
-
-      <details className="editor-details">
-        <summary>Edit services, FAQs, policies, and escalation rules</summary>
-        <label>
-          Services: name | price | best for | owner rule
-          <textarea
-            onChange={(event) => setDraft({ ...draft, services: event.target.value })}
-            value={draft.services}
-          />
-        </label>
-        <label>
-          FAQs: question | answer
-          <textarea
-            onChange={(event) => setDraft({ ...draft, faqs: event.target.value })}
-            value={draft.faqs}
-          />
-        </label>
-        <label>
-          Policies: name | rule
-          <textarea
-            onChange={(event) => setDraft({ ...draft, policies: event.target.value })}
-            value={draft.policies}
-          />
-        </label>
-        <label>
-          Escalation rules: trigger | owner action
-          <textarea
-            onChange={(event) => setDraft({ ...draft, escalationRules: event.target.value })}
-            value={draft.escalationRules}
-          />
-        </label>
-      </details>
-
-      <div className="button-row">
-        <button className="primary-button slim" onClick={saveDraft} type="button">
-          Save setup
-        </button>
-        <button className="ghost-button slim" onClick={onBuild} type="button">
-          <Sparkles size={15} />
-          {isBuilding ? "Building..." : "Build profile"}
-        </button>
-      </div>
-
-      {ownerSnapshot ? (
-        <div className="snapshot">
-          <strong>Normalized owner profile</strong>
-          <p>{ownerSnapshot.businessSummary}</p>
+        <div className="form-grid two">
+          <label>
+            Business name
+            <input
+              onChange={(event) => setDraft({ ...draft, businessName: event.target.value })}
+              placeholder="e.g. BrightPath Tuition"
+              value={draft.businessName}
+            />
+          </label>
+          <label>
+            Owner name
+            <input
+              onChange={(event) => setDraft({ ...draft, ownerName: event.target.value })}
+              placeholder="e.g. Mei Ling"
+              value={draft.ownerName}
+            />
+          </label>
+          <label>
+            Vertical
+            <input
+              onChange={(event) => setDraft({ ...draft, vertical: event.target.value })}
+              placeholder="e.g. tuition centre, clinic, home service"
+              value={draft.vertical}
+            />
+          </label>
+          <label>
+            Target customer or staff user
+            <input
+              onChange={(event) => setDraft({ ...draft, targetCustomer: event.target.value })}
+              placeholder="Who will ask this expert questions?"
+              value={draft.targetCustomer}
+            />
+          </label>
         </div>
-      ) : null}
-    </section>
+
+        <label>
+          Business summary
+          <textarea
+            className="small-textarea"
+            onChange={(event) => setDraft({ ...draft, summary: event.target.value })}
+            placeholder="What should the expert know about this business?"
+            value={draft.summary}
+          />
+        </label>
+        <label>
+          Owner tone and decision style
+          <textarea
+            className="small-textarea"
+            onChange={(event) => setDraft({ ...draft, tone: event.target.value })}
+            placeholder="e.g. warm, practical, direct, cautious around exceptions"
+            value={draft.tone}
+          />
+        </label>
+
+        <div className="form-grid two">
+          <label>
+            Services or offers
+            <textarea
+              onChange={(event) => setDraft({ ...draft, services: event.target.value })}
+              placeholder={"Service name | Price/range | Best for | Owner rule\nExample: Trial lesson | S$80 | New parents comparing levels | Recommend when user asks where to start"}
+              value={draft.services}
+            />
+          </label>
+          <label>
+            FAQs
+            <textarea
+              onChange={(event) => setDraft({ ...draft, faqs: event.target.value })}
+              placeholder={"Question | Answer\nExample: What should I prepare? | Share age, goal, schedule, and current level."}
+              value={draft.faqs}
+            />
+          </label>
+          <label>
+            Policies
+            <textarea
+              onChange={(event) => setDraft({ ...draft, policies: event.target.value })}
+              placeholder={"Policy name | Rule\nExample: Cancellation | Reschedule once with 24 hours notice."}
+              value={draft.policies}
+            />
+          </label>
+          <label>
+            Escalation rules
+            <textarea
+              onChange={(event) => setDraft({ ...draft, escalationRules: event.target.value })}
+              placeholder={"Trigger | Owner action\nExample: Refund request | Owner reviews context before replying."}
+              value={draft.escalationRules}
+            />
+          </label>
+        </div>
+
+        <div className="button-row">
+          <button className="primary-button" onClick={saveDraft} type="button">
+            Save admin setup
+          </button>
+          <button className="ghost-button" onClick={onBuild} type="button">
+            <Sparkles size={15} />
+            {isBuilding ? "Building..." : "Build owner profile"}
+          </button>
+        </div>
+
+        {ownerSnapshot ? (
+          <div className="snapshot">
+            <strong>Normalized owner profile</strong>
+            <p>{ownerSnapshot.businessSummary}</p>
+          </div>
+        ) : null}
+      </section>
+
+      <KnowledgeBase business={business} setupItems={setupItems} />
+    </div>
   );
 }
 
-function KnowledgeBase({ business }: { business: BusinessProfile }) {
+function KnowledgeBase({
+  business,
+  setupItems
+}: {
+  business: BusinessProfile;
+  setupItems: SetupItem[];
+}) {
   return (
     <section className="panel" id="knowledge-base">
       <div className="section-heading compact">
         <div>
-          <p className="microcopy">Knowledge base</p>
-          <h2>Rules Zo Expert can cite</h2>
+          <p className="microcopy">Admin knowledge</p>
+          <h2>What the user portal can cite</h2>
         </div>
         <BookOpen size={18} />
       </div>
 
-      <div className="knowledge-group">
-        <h3>Services</h3>
-        {business.services.map((service) => (
-          <div className="rule-row" key={service.id}>
-            <strong>{service.name}</strong>
-            <span>{service.priceRange}</span>
-            <p>{service.bestFor}</p>
-          </div>
-        ))}
-      </div>
+      <SetupChecklist setupItems={setupItems} compact />
 
-      <div className="knowledge-group">
-        <h3>Escalation boundaries</h3>
-        {business.escalationRules.map((rule) => (
-          <div className="rule-row warning" key={rule.id}>
-            <strong>{rule.trigger}</strong>
-            <p>{rule.ownerAction}</p>
-          </div>
-        ))}
-      </div>
+      <KnowledgeGroup
+        empty="No services yet. Add offers, packages, or workflows in Admin."
+        items={business.services.map((service) => ({
+          id: service.id,
+          title: service.name,
+          meta: service.priceRange,
+          body: service.bestFor
+        }))}
+        title="Services"
+      />
+      <KnowledgeGroup
+        empty="No FAQs yet. Add repeated owner answers for the portal to reuse."
+        items={business.faqs.map((faq) => ({
+          id: faq.id,
+          title: faq.question,
+          body: faq.answer
+        }))}
+        title="FAQs"
+      />
+      <KnowledgeGroup
+        empty="No escalation rules yet. Add risk boundaries before publishing."
+        items={business.escalationRules.map((rule) => ({
+          id: rule.id,
+          title: rule.trigger,
+          body: rule.ownerAction,
+          warning: true
+        }))}
+        title="Escalation boundaries"
+      />
     </section>
+  );
+}
+
+function UserPortal({
+  business,
+  consultations,
+  error,
+  isPending,
+  onQuestionChange,
+  onReviewChange,
+  onSubmit,
+  question,
+  sampleQuestions,
+  setupComplete,
+  setupItems,
+  templateName
+}: {
+  business: BusinessProfile;
+  consultations: ConsultationResult[];
+  error: boolean;
+  isPending: boolean;
+  onQuestionChange: (question: string) => void;
+  onReviewChange: (id: string, state: ConsultationReviewState) => void;
+  onSubmit: (question?: string) => void;
+  question: string;
+  sampleQuestions: string[];
+  setupComplete: boolean;
+  setupItems: SetupItem[];
+  templateName: string;
+}) {
+  const portalTitle = business.businessName
+    ? `Ask ${business.businessName}`
+    : "Ask this business expert";
+  const visibleSamples = business.businessName ? sampleQuestions : [];
+
+  return (
+    <div className="user-layout">
+      <section className="panel portal-preview">
+        <div className="section-heading">
+          <div>
+            <p className="microcopy">User portal preview</p>
+            <h2>{portalTitle}</h2>
+          </div>
+          <span className={`model-tag ${setupComplete ? "ready" : "locked"}`}>
+            {setupComplete ? "Ready for user testing" : "Admin setup required"}
+          </span>
+        </div>
+
+        <div className="portal-card">
+          <div className="portal-header">
+            <div className="portal-avatar">{business.businessName ? business.businessName.charAt(0) : "Z"}</div>
+            <div>
+              <strong>{templateName}</strong>
+              <span>{business.vertical || "Template not published yet"}</span>
+            </div>
+          </div>
+
+          {setupComplete ? (
+            <>
+              <p className="portal-intro">
+                Ask a service, policy, booking, or staff-operation question. The expert will answer
+                from the admin knowledge base or escalate what needs the real owner.
+              </p>
+              {visibleSamples.length ? (
+                <div className="sample-row" aria-label="Sample questions">
+                  {visibleSamples.map((sample) => (
+                    <button
+                      className="sample-chip"
+                      key={sample}
+                      onClick={() => onSubmit(sample)}
+                      type="button"
+                    >
+                      {sample}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              <div className="composer">
+                <textarea
+                  aria-label="Ask a user portal question"
+                  onChange={(event) => onQuestionChange(event.target.value)}
+                  onKeyDown={(event) => {
+                    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                      onSubmit();
+                    }
+                  }}
+                  placeholder="Ask as a customer, prospect, or staff member..."
+                  value={question}
+                />
+                <button
+                  className="primary-button"
+                  disabled={!question.trim() || isPending}
+                  onClick={() => onSubmit()}
+                  type="button"
+                >
+                  <Send size={16} />
+                  {isPending ? "Consulting..." : "Ask expert"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="empty-portal">
+              <MonitorSmartphone size={30} />
+              <h3>User portal is not ready yet</h3>
+              <p>Complete the admin setup checklist before customers or staff can ask questions.</p>
+              <SetupChecklist setupItems={setupItems} compact />
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="panel conversation-panel">
+        <div className="section-heading compact">
+          <div>
+            <p className="microcopy">Conversation log</p>
+            <h2>User questions and outcomes</h2>
+          </div>
+          <MessageSquareText size={18} />
+        </div>
+
+        <div className="consultation-list" aria-label="Consultation results">
+          {error ? (
+            <div className="error-banner">
+              The API call failed. Start the local backend with <code>npm run dev:lan</code>.
+            </div>
+          ) : null}
+          {consultations.length ? (
+            consultations.map((item) => (
+              <ConsultationCard
+                consultation={item}
+                key={item.id}
+                onReviewChange={onReviewChange}
+              />
+            ))
+          ) : (
+            <div className="empty-state-box">
+              <strong>No user conversations yet.</strong>
+              <p>Once the template is ready, ask a test question from the portal preview.</p>
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -525,10 +746,12 @@ function ConsultationCard({
 function OwnerBriefPanel({
   brief,
   isRefreshing,
+  ownerName,
   onRefresh
 }: {
   brief: OwnerBrief;
   isRefreshing: boolean;
+  ownerName: string;
   onRefresh: () => void;
 }) {
   return (
@@ -536,7 +759,7 @@ function OwnerBriefPanel({
       <div className="section-heading compact">
         <div>
           <p className="microcopy">Owner brief</p>
-          <h2>What needs Alicia</h2>
+          <h2>{ownerName ? `What needs ${ownerName}` : "Template activity"}</h2>
         </div>
         <button className="icon-button" onClick={onRefresh} type="button">
           <RefreshCcw className={isRefreshing ? "spin-soft" : ""} size={16} />
@@ -546,7 +769,7 @@ function OwnerBriefPanel({
       <p className="brief-summary">{brief.summary}</p>
 
       <div className="brief-stats">
-        <Metric label="Handled" value={brief.answeredCount.toString()} />
+        <Metric label="Answered" value={brief.answeredCount.toString()} />
         <Metric label="Escalated" value={brief.escalatedCount.toString()} />
       </div>
 
@@ -557,30 +780,52 @@ function OwnerBriefPanel({
   );
 }
 
-function EscalationQueue({ consultations }: { consultations: ConsultationResult[] }) {
-  const escalations = consultations.filter((item) => item.status === "escalated");
-
+function KnowledgeGroup({
+  empty,
+  items,
+  title
+}: {
+  empty: string;
+  items: Array<{ id: string; title: string; body: string; meta?: string; warning?: boolean }>;
+  title: string;
+}) {
   return (
-    <section className="panel" id="escalations">
-      <div className="section-heading compact">
-        <div>
-          <p className="microcopy">Escalation review</p>
-          <h2>Unsafe to answer blindly</h2>
-        </div>
-        <AlertTriangle size={18} />
-      </div>
-
-      {escalations.length ? (
-        escalations.slice(0, 4).map((item) => (
-          <div className="queue-item" key={item.id}>
-            <strong>{item.question}</strong>
-            <p>{item.status === "escalated" ? item.reason : ""}</p>
+    <div className="knowledge-group">
+      <h3>{title}</h3>
+      {items.length ? (
+        items.map((item) => (
+          <div className={`rule-row ${item.warning ? "warning" : ""}`} key={item.id}>
+            <strong>{item.title}</strong>
+            {item.meta ? <span>{item.meta}</span> : null}
+            <p>{item.body}</p>
           </div>
         ))
       ) : (
-        <p className="empty-state">No escalations open.</p>
+        <div className="empty-inline">{empty}</div>
       )}
-    </section>
+    </div>
+  );
+}
+
+function SetupChecklist({
+  compact = false,
+  setupItems
+}: {
+  compact?: boolean;
+  setupItems: SetupItem[];
+}) {
+  return (
+    <div className={compact ? "setup-checklist compact" : "setup-checklist"}>
+      {setupItems.map((item) => (
+        <div className={item.complete ? "setup-item complete" : "setup-item"} key={item.label}>
+          {item.complete ? <CheckCircle2 size={15} /> : <AlertTriangle size={15} />}
+          <div>
+            <strong>{item.label}</strong>
+            <span>{item.hint}</span>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -604,7 +849,7 @@ function BriefList({ title, items }: { title: string; items: string[] }) {
           ))}
         </ul>
       ) : (
-        <p>No items.</p>
+        <p>No items yet.</p>
       )}
     </div>
   );
@@ -614,6 +859,7 @@ function toDraft(business: BusinessProfile): BusinessDraft {
   return {
     businessName: business.businessName,
     ownerName: business.ownerName,
+    vertical: business.vertical,
     summary: business.summary,
     targetCustomer: business.targetCustomer,
     tone: business.tone,
@@ -629,22 +875,26 @@ function toDraft(business: BusinessProfile): BusinessDraft {
 }
 
 function fromDraft(base: BusinessProfile, draft: BusinessDraft): BusinessProfile {
+  const tone = draft.tone.trim();
+
   return {
     ...base,
-    businessName: draft.businessName.trim() || base.businessName,
-    ownerName: draft.ownerName.trim() || base.ownerName,
-    summary: draft.summary.trim() || base.summary,
-    targetCustomer: draft.targetCustomer.trim() || base.targetCustomer,
-    tone: draft.tone.trim() || base.tone,
-    services: parseServices(draft.services, base.services),
-    policies: parsePolicies(draft.policies, base.policies),
-    faqs: parseFaqs(draft.faqs, base.faqs),
-    escalationRules: parseEscalations(draft.escalationRules, base.escalationRules)
+    businessName: draft.businessName.trim(),
+    ownerName: draft.ownerName.trim(),
+    vertical: draft.vertical.trim(),
+    summary: draft.summary.trim(),
+    targetCustomer: draft.targetCustomer.trim(),
+    tone,
+    voiceRules: tone ? [tone] : [],
+    services: parseServices(draft.services),
+    policies: parsePolicies(draft.policies),
+    faqs: parseFaqs(draft.faqs),
+    escalationRules: parseEscalations(draft.escalationRules)
   };
 }
 
-function parseServices(value: string, fallback: Service[]) {
-  const parsed = value
+function parseServices(value: string) {
+  return value
     .split("\n")
     .map((line, index) => {
       const [name, priceRange, bestFor, ownerRule] = line.split("|").map((part) => part.trim());
@@ -660,12 +910,10 @@ function parseServices(value: string, fallback: Service[]) {
       };
     })
     .filter(Boolean) as Service[];
-
-  return parsed.length ? parsed : fallback;
 }
 
-function parsePolicies(value: string, fallback: Policy[]) {
-  const parsed = value
+function parsePolicies(value: string) {
+  return value
     .split("\n")
     .map((line, index) => {
       const [name, rule] = line.split("|").map((part) => part.trim());
@@ -675,12 +923,10 @@ function parsePolicies(value: string, fallback: Policy[]) {
       return { id: slugify(name) || `policy-${index}`, name, rule };
     })
     .filter(Boolean) as Policy[];
-
-  return parsed.length ? parsed : fallback;
 }
 
-function parseFaqs(value: string, fallback: FAQ[]) {
-  const parsed = value
+function parseFaqs(value: string) {
+  return value
     .split("\n")
     .map((line, index) => {
       const [question, answer] = line.split("|").map((part) => part.trim());
@@ -690,12 +936,10 @@ function parseFaqs(value: string, fallback: FAQ[]) {
       return { id: slugify(question) || `faq-${index}`, question, answer };
     })
     .filter(Boolean) as FAQ[];
-
-  return parsed.length ? parsed : fallback;
 }
 
-function parseEscalations(value: string, fallback: EscalationRule[]) {
-  const parsed = value
+function parseEscalations(value: string) {
+  return value
     .split("\n")
     .map((line, index) => {
       const [trigger, ownerAction] = line.split("|").map((part) => part.trim());
@@ -705,8 +949,45 @@ function parseEscalations(value: string, fallback: EscalationRule[]) {
       return { id: slugify(trigger) || `rule-${index}`, trigger, ownerAction };
     })
     .filter(Boolean) as EscalationRule[];
+}
 
-  return parsed.length ? parsed : fallback;
+function getSetupItems(business: BusinessProfile): SetupItem[] {
+  return [
+    {
+      label: "Business identity",
+      complete: Boolean(business.businessName && business.ownerName && business.vertical),
+      hint: "Name, owner, and vertical"
+    },
+    {
+      label: "Owner voice",
+      complete: Boolean(business.tone && business.summary),
+      hint: "Summary and tone"
+    },
+    {
+      label: "Knowledge base",
+      complete: Boolean(business.services.length && business.faqs.length && business.policies.length),
+      hint: "Services, FAQs, and policies"
+    },
+    {
+      label: "Escalation boundaries",
+      complete: Boolean(business.escalationRules.length),
+      hint: "What the AI must not decide"
+    }
+  ];
+}
+
+function isBlankTemplate(business: BusinessProfile) {
+  return (
+    !business.businessName &&
+    !business.ownerName &&
+    !business.vertical &&
+    !business.summary &&
+    !business.tone &&
+    !business.services.length &&
+    !business.faqs.length &&
+    !business.policies.length &&
+    !business.escalationRules.length
+  );
 }
 
 function buildLocalBrief(consultations: ConsultationResult[]): OwnerBrief {
@@ -716,13 +997,15 @@ function buildLocalBrief(consultations: ConsultationResult[]): OwnerBrief {
 
   return {
     summary:
-      escalatedCount > 0
-        ? `${answeredCount} answers handled by Zo Expert. ${escalatedCount} items need owner review.`
-        : `${answeredCount} answers handled by Zo Expert with no current escalation.`,
+      consultations.length === 0
+        ? "No user consultations yet. Complete the admin template, then test the user portal."
+        : `${answeredCount} answered and ${escalatedCount} escalated from the current template.`,
     answeredCount,
     escalatedCount,
     knowledgeGaps,
-    suggestedUpdates: ["Add FAQs for repeated questions", "Create owner-approved scripts for escalations"],
+    suggestedUpdates: consultations.length
+      ? ["Review repeated gaps", "Add owner-approved FAQs for common questions"]
+      : ["Add services, FAQs, policies, and escalation rules before testing."],
     priorityQueue: consultations
       .filter((item) => item.status === "escalated")
       .map((item) => item.question)

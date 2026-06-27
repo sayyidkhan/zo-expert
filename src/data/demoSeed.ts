@@ -1,6 +1,21 @@
 import type { BusinessProfile, ConsultationResult, DemoSeedResponse, OwnerBrief } from "../types/api";
 
-export const seedBusiness: BusinessProfile = {
+export const templateBusiness: BusinessProfile = {
+  id: "blank-owner-expert-template",
+  businessName: "",
+  ownerName: "",
+  vertical: "",
+  summary: "",
+  targetCustomer: "",
+  tone: "",
+  voiceRules: [],
+  services: [],
+  policies: [],
+  faqs: [],
+  escalationRules: []
+};
+
+export const sampleBusiness: BusinessProfile = {
   id: "oak-grid-studio",
   businessName: "Oak & Grid Studio",
   ownerName: "Alicia Tan",
@@ -127,7 +142,7 @@ export const sampleQuestions = [
   "What should I prepare before a remote consultation?"
 ];
 
-export const seedConsultations: ConsultationResult[] = [
+export const sampleConsultations: ConsultationResult[] = [
   {
     id: "seed-answered-1",
     status: "answered",
@@ -159,7 +174,7 @@ export const seedConsultations: ConsultationResult[] = [
   }
 ];
 
-export const seedBrief: OwnerBrief = {
+export const sampleBrief: OwnerBrief = {
   summary:
     "Most consultations are routine service-selection and preparation questions. Deposit exceptions and site-condition questions should stay owner-reviewed.",
   answeredCount: 1,
@@ -177,9 +192,26 @@ export const seedBrief: OwnerBrief = {
   ]
 };
 
+export const emptyBrief: OwnerBrief = {
+  summary:
+    "No user consultations yet. Complete the admin template, then test the user portal to see answered questions, escalations, and knowledge gaps.",
+  answeredCount: 0,
+  escalatedCount: 0,
+  knowledgeGaps: [],
+  suggestedUpdates: [
+    "Add at least one service or offer.",
+    "Add FAQs that the owner answers repeatedly.",
+    "Add escalation rules for sensitive, risky, or exception-based questions."
+  ],
+  priorityQueue: ["Finish admin setup", "Preview the user portal", "Run a first test question"]
+};
+
 export const demoSeed: DemoSeedResponse = {
-  business: seedBusiness,
+  business: templateBusiness,
+  sampleBusiness,
   sampleQuestions,
-  consultations: seedConsultations,
-  brief: seedBrief
+  consultations: [],
+  sampleConsultations,
+  brief: emptyBrief,
+  sampleBrief
 };

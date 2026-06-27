@@ -2,10 +2,16 @@
 
 Localhost proof of concept for an AI consultation proxy for SME owners.
 
-Zo Expert lets a small business owner define business knowledge, tone, policies,
-and escalation rules. Customers, prospects, or staff can ask questions through a
-simple consultation interface. The app answers safe questions in the owner's
-style, escalates risky questions, and generates an owner brief.
+Zo Expert starts as a blank owner-expert template. The app has two main parts:
+
+- **Admin workspace:** the business owner defines business context, tone,
+  services, FAQs, policies, and escalation rules.
+- **User portal:** customers, prospects, or staff ask questions through a simple
+  portal once the admin setup is complete.
+
+The app answers safe questions in the owner's style, escalates risky questions,
+and generates an owner brief. A renovation SME sample can be loaded explicitly
+for demo purposes, but the default state is an empty reusable template.
 
 ## Stack
 

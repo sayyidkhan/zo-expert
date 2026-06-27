@@ -104,7 +104,10 @@ export type OwnerBrief = {
 
 export type DemoSeedResponse = {
   business: BusinessProfile;
+  sampleBusiness: BusinessProfile;
   sampleQuestions: string[];
   consultations: ConsultationResult[];
+  sampleConsultations: ConsultationResult[];
   brief: OwnerBrief;
+  sampleBrief: OwnerBrief;
 };
