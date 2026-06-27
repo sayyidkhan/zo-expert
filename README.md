@@ -11,6 +11,16 @@ Public submission URL: pending until the `zo-expert` Zo Hosting site is switched
 to public. As of 2026-06-27, the private Zo handle redirects to Zo login, and
 `https://zo-expert-sayyidkhan.zocomputer.io` returns 404.
 
+## Hackathon Submission Links
+
+| Field | Link |
+| --- | --- |
+| Code repository | https://github.com/sayyidkhan/zo-expert |
+| Live website | https://zo-expert-sayyidkhan.zo.computer |
+| Demo video | https://youtu.be/-3agQEJ7Jg8 |
+| Pitch deck | https://docs.google.com/presentation/d/1p4Nb6a9IFjZT81-wD27nXmyMUbWeUl1e/edit?slide=id.p1#slide=id.p1 |
+| Instagram post | https://www.instagram.com/p/DaFSaYHkwPC/?img_index=1 |
+
 ## Product Flow
 
 1. Owner fills the template with business identity, tone, services, knowledge,
