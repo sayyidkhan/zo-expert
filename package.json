@@ -1,0 +1,39 @@
+{
+  "name": "zo-expert",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:lan": "concurrently -k \"npm:dev:server\" \"npm:dev:client:lan\"",
+    "dev:client": "vite --host 127.0.0.1",
+    "dev:client:lan": "vite --host 0.0.0.0",
+    "dev:server": "tsx watch server/index.ts",
+    "build": "tsc -b && vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.81.5",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "lucide-react": "^0.468.0",
+    "openai": "^4.104.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.23",
+    "@types/node": "^22.15.34",
+    "@types/react": "^18.3.23",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^6.0.3",
+    "concurrently": "^9.2.0",
+    "playwright": "^1.61.1",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "vite": "^8.1.0"
+  }
+}
