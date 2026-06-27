@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import ownerHeroImage from "./assets/zo-expert-owner-hero.png";
 import { consultOwnerProxy, generateBrief, getDemoSeed } from "./lib/api";
 import type {
   BusinessProfile,
@@ -25,6 +26,8 @@ import type {
 
 const businessStorageKey = "zo-expert.simple.v1.business";
 const consultationsStorageKey = "zo-expert.simple.v1.consultations";
+
+type BuilderTab = "template" | "ask" | "brief";
 
 type BusinessDraft = {
   businessName: string;
@@ -53,29 +56,21 @@ export default function App() {
 
 function IntroPage({ onStart }: { onStart: () => void }) {
   return (
-    <main className="intro-page">
+    <main className="intro-page intro-redesign">
       <nav className="intro-nav">
-        <div className="brand-lockup">
-          <div className="brand-mark">Z</div>
-          <div>
-            <strong>Zo Expert</strong>
-            <span>Owner expert templates</span>
-          </div>
-        </div>
+        <BrandLockup status="Owner expert templates" />
         <button className="ghost-button" onClick={onStart} type="button">
           Open builder
           <ArrowRight size={16} />
         </button>
       </nav>
 
-      <section className="intro-hero">
+      <section className="intro-hero intro-photo-hero">
         <div className="intro-copy">
-          <p className="microcopy">AI consultation proxy for SMEs</p>
           <h1>Turn an owner&apos;s know-how into a safe customer-facing expert.</h1>
           <p>
-            Small businesses do not need a complicated CRM to start with AI. They need a simple
-            way to capture how the owner answers, advises, and decides, then expose that knowledge
-            through a user portal with clear escalation boundaries.
+            Zo Expert captures how an SME owner answers, advises, and decides, then exposes that
+            knowledge through a simple customer portal with clear escalation boundaries.
           </p>
           <div className="intro-actions">
             <button className="primary-button" onClick={onStart} type="button">
@@ -87,22 +82,12 @@ function IntroPage({ onStart }: { onStart: () => void }) {
             </a>
           </div>
         </div>
-        <div className="intro-preview" aria-label="Zo Expert preview">
-          <div className="preview-window">
-            <div className="preview-bar">
-              <span />
-              <span />
-              <span />
-            </div>
-            <div className="preview-message customer">Which service should I choose?</div>
-            <div className="preview-message expert">
-              Start with the lowest-risk option. I&apos;ll answer from saved owner knowledge and
-              escalate anything sensitive.
-            </div>
-            <div className="preview-escalation">
-              <AlertTriangle size={16} />
-              Policy exceptions go back to the owner.
-            </div>
+        <div className="intro-photo-frame">
+          <img alt="SME owner working at a laptop" src={ownerHeroImage} />
+          <div className="intro-floating-chat">
+            <span>Customer asks</span>
+            <strong>Which service should I choose?</strong>
+            <p>Safe answers go out. Sensitive decisions come back to the owner.</p>
           </div>
         </div>
       </section>
@@ -135,6 +120,7 @@ function BuilderPage({ onIntro }: { onIntro: () => void }) {
   });
 
   const seed = seedQuery.data;
+  const [activeTab, setActiveTab] = useState<BuilderTab>("template");
   const [business, setBusiness] = useState<BusinessProfile | null>(null);
   const [draft, setDraft] = useState<BusinessDraft | null>(null);
   const [consultations, setConsultations] = useState<ConsultationResult[]>([]);
@@ -180,6 +166,7 @@ function BuilderPage({ onIntro }: { onIntro: () => void }) {
     onSuccess: (result) => {
       setConsultations((current) => [result, ...current]);
       setQuestion("");
+      setActiveTab("ask");
     }
   });
 
@@ -199,9 +186,15 @@ function BuilderPage({ onIntro }: { onIntro: () => void }) {
 
   const saveTemplate = () => {
     const nextBusiness = fromDraft(business, draft);
+    const nextSetupItems = getSetupItems(nextBusiness);
+
     setBusiness(nextBusiness);
     setBrief(buildLocalBrief(consultations));
     setTemplateStatus(isBlankTemplate(nextBusiness) ? "blank" : "draft");
+
+    if (nextSetupItems.every((item) => item.complete)) {
+      setActiveTab("ask");
+    }
   };
 
   const loadSample = () => {
@@ -211,6 +204,7 @@ function BuilderPage({ onIntro }: { onIntro: () => void }) {
     setBrief(seed.brief);
     setQuestion("");
     setTemplateStatus("sample");
+    setActiveTab("template");
   };
 
   const resetTemplate = () => {
@@ -220,6 +214,7 @@ function BuilderPage({ onIntro }: { onIntro: () => void }) {
     setBrief(seed.brief);
     setQuestion("");
     setTemplateStatus("blank");
+    setActiveTab("template");
     localStorage.removeItem(businessStorageKey);
     localStorage.removeItem(consultationsStorageKey);
   };
@@ -246,16 +241,13 @@ function BuilderPage({ onIntro }: { onIntro: () => void }) {
   const statusLabel =
     templateStatus === "sample" ? "Sample loaded" : setupComplete ? "Ready to test" : "Draft";
 
+  const tabMeta = getTabMeta(activeTab);
+
   return (
-    <main className="simple-shell">
-      <header className="simple-topbar">
-        <div className="brand-lockup">
-          <div className="brand-mark">Z</div>
-          <div>
-            <strong>Zo Expert</strong>
-            <span>{statusLabel}</span>
-          </div>
-        </div>
+    <main className="studio-shell">
+      <header className="studio-topbar">
+        <BrandLockup status={statusLabel} />
+        <TabRail activeTab={activeTab} onTabChange={setActiveTab} />
         <div className="topbar-actions">
           <button className="ghost-button" onClick={onIntro} type="button">
             <HelpCircle size={16} />
@@ -272,65 +264,263 @@ function BuilderPage({ onIntro }: { onIntro: () => void }) {
         </div>
       </header>
 
-      <section className="simple-hero">
-        <div>
-          <p className="microcopy">Template builder</p>
-          <h1>Build the owner expert in three steps.</h1>
-          <p>
-            Capture the owner&apos;s know-how, test the user portal, and review what needs human
-            judgment. No CRM setup, no integrations, no extra workflow.
-          </p>
+      <section className="studio-hero" aria-label="Zo Expert overview">
+        <img alt="SME owner working at a laptop" className="hero-photo" src={ownerHeroImage} />
+        <div className="hero-shade" />
+        <div className="hero-content">
+          <div className="hero-copy">
+            <h1>Build your owner expert in three simple steps.</h1>
+            <p>Capture know-how. Let users ask. Keep the owner in control of what matters.</p>
+            <div className="hero-actions">
+              <button className="primary-button" onClick={() => setActiveTab("template")} type="button">
+                Edit template
+              </button>
+              <button
+                className="glass-button"
+                onClick={() => (setupComplete ? setActiveTab("ask") : loadSample())}
+                type="button"
+              >
+                {setupComplete ? "Test portal" : "Load sample"}
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          </div>
+          <HeroPreview business={business} setupComplete={setupComplete} />
         </div>
-        <SetupProgress setupItems={setupItems} />
+        <div className="hero-step-strip" aria-label="Flow summary">
+          <HeroStep
+            active={activeTab === "template"}
+            label="Template"
+            number="1"
+            onClick={() => setActiveTab("template")}
+          />
+          <HeroStep
+            active={activeTab === "ask"}
+            label="Ask"
+            number="2"
+            onClick={() => setActiveTab("ask")}
+          />
+          <HeroStep
+            active={activeTab === "brief"}
+            label="Brief"
+            number="3"
+            onClick={() => setActiveTab("brief")}
+          />
+        </div>
       </section>
 
-      <div className="simple-grid">
-        <section className="simple-panel setup-flow">
-          <StepHeader
-            icon={<UserRoundCog size={18} />}
-            step="1"
-            title="Setup expert"
-            subtitle="Fill only what the AI needs to answer safely."
+      <section className="tab-workspace" aria-label={`${tabMeta.title} workspace`}>
+        <div className="workspace-heading">
+          <div>
+            <h2>{tabMeta.title}</h2>
+            <p>{tabMeta.description}</p>
+          </div>
+          <SetupProgress setupItems={setupItems} />
+        </div>
+
+        {activeTab === "template" ? (
+          <TemplateTab
+            draft={draft}
+            business={business}
+            loadSample={loadSample}
+            saveTemplate={saveTemplate}
+            setActiveTab={setActiveTab}
+            setDraft={setDraft}
+            setupItems={setupItems}
           />
+        ) : null}
 
-          <div className="simple-form two">
-            <label>
-              Business name
-              <input
-                onChange={(event) => setDraft({ ...draft, businessName: event.target.value })}
-                placeholder="e.g. BrightPath Tuition"
-                value={draft.businessName}
-              />
-            </label>
-            <label>
-              Owner name
-              <input
-                onChange={(event) => setDraft({ ...draft, ownerName: event.target.value })}
-                placeholder="e.g. Mei Ling"
-                value={draft.ownerName}
-              />
-            </label>
-          </div>
+        {activeTab === "ask" ? (
+          <AskTab
+            business={business}
+            consultations={consultations}
+            error={consultMutation.isError}
+            isPending={consultMutation.isPending}
+            question={question}
+            sampleQuestions={templateStatus === "sample" ? seed.sampleQuestions : genericQuestions}
+            setActiveTab={setActiveTab}
+            setQuestion={setQuestion}
+            setupComplete={setupComplete}
+            setupItems={setupItems}
+            submitQuestion={submitQuestion}
+            updateReviewState={updateReviewState}
+          />
+        ) : null}
 
-          <div className="simple-form two">
-            <label>
-              Business type
-              <input
-                onChange={(event) => setDraft({ ...draft, vertical: event.target.value })}
-                placeholder="e.g. tuition centre, beauty clinic, home service"
-                value={draft.vertical}
-              />
-            </label>
-            <label>
-              Owner tone
-              <input
-                onChange={(event) => setDraft({ ...draft, tone: event.target.value })}
-                placeholder="e.g. warm, practical, direct"
-                value={draft.tone}
-              />
-            </label>
-          </div>
+        {activeTab === "brief" ? (
+          <BriefTab
+            brief={currentBrief}
+            consultations={consultations}
+            isRefreshing={briefMutation.isPending}
+            onRefresh={() => briefMutation.mutate({ consultations })}
+            setupItems={setupItems}
+            setActiveTab={setActiveTab}
+            updateReviewState={updateReviewState}
+          />
+        ) : null}
+      </section>
+    </main>
+  );
+}
 
+function BrandLockup({ status }: { status: string }) {
+  return (
+    <div className="brand-lockup">
+      <div className="brand-mark">Z</div>
+      <div>
+        <strong>Zo Expert</strong>
+        <span>{status}</span>
+      </div>
+    </div>
+  );
+}
+
+function TabRail({
+  activeTab,
+  onTabChange
+}: {
+  activeTab: BuilderTab;
+  onTabChange: (tab: BuilderTab) => void;
+}) {
+  const tabs: Array<{ icon: ReactNode; id: BuilderTab; label: string }> = [
+    { id: "template", label: "Template", icon: <BookOpen size={18} /> },
+    { id: "ask", label: "Ask", icon: <MessageSquareText size={18} /> },
+    { id: "brief", label: "Owner Brief", icon: <ClipboardList size={18} /> }
+  ];
+
+  return (
+    <div className="tab-rail" role="tablist" aria-label="Zo Expert sections">
+      {tabs.map((tab) => (
+        <button
+          aria-selected={activeTab === tab.id}
+          className={activeTab === tab.id ? "selected" : ""}
+          key={tab.id}
+          onClick={() => onTabChange(tab.id)}
+          role="tab"
+          type="button"
+        >
+          {tab.icon}
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function HeroPreview({
+  business,
+  setupComplete
+}: {
+  business: BusinessProfile;
+  setupComplete: boolean;
+}) {
+  return (
+    <div className="hero-preview-card" aria-label="User portal preview">
+      <div className="preview-topline">
+        <div className="portal-avatar">{business.businessName ? business.businessName.charAt(0) : "Z"}</div>
+        <div>
+          <strong>{business.businessName || "Your business expert"}</strong>
+          <span>{setupComplete ? "Ready for user questions" : "Locked until setup is saved"}</span>
+        </div>
+      </div>
+      <div className="hero-chat-bubble user">
+        I need advice before I commit. What should I choose?
+      </div>
+      <div className="hero-chat-bubble expert">
+        I&apos;ll answer from the owner&apos;s saved knowledge and flag risky decisions.
+      </div>
+      <div className="hero-mini-composer">
+        <span>Ask another question...</span>
+        <Send size={15} />
+      </div>
+    </div>
+  );
+}
+
+function HeroStep({
+  active,
+  label,
+  number,
+  onClick
+}: {
+  active: boolean;
+  label: string;
+  number: string;
+  onClick: () => void;
+}) {
+  return (
+    <button className={active ? "active" : ""} onClick={onClick} type="button">
+      <span>{number}</span>
+      {label}
+    </button>
+  );
+}
+
+function TemplateTab({
+  business,
+  draft,
+  loadSample,
+  saveTemplate,
+  setActiveTab,
+  setDraft,
+  setupItems
+}: {
+  business: BusinessProfile;
+  draft: BusinessDraft;
+  loadSample: () => void;
+  saveTemplate: () => void;
+  setActiveTab: (tab: BuilderTab) => void;
+  setDraft: (draft: BusinessDraft) => void;
+  setupItems: SetupItem[];
+}) {
+  return (
+    <div className="tab-content-grid template-layout">
+      <section className="workspace-panel form-panel">
+        <PanelTitle
+          icon={<UserRoundCog size={18} />}
+          title="Template"
+          description="Fill only what the AI needs to answer safely."
+        />
+
+        <div className="simple-form two">
+          <label>
+            Business name
+            <input
+              onChange={(event) => setDraft({ ...draft, businessName: event.target.value })}
+              placeholder="e.g. BrightPath Tuition"
+              value={draft.businessName}
+            />
+          </label>
+          <label>
+            Owner name
+            <input
+              onChange={(event) => setDraft({ ...draft, ownerName: event.target.value })}
+              placeholder="e.g. Mei Ling"
+              value={draft.ownerName}
+            />
+          </label>
+        </div>
+
+        <div className="simple-form two">
+          <label>
+            Business type
+            <input
+              onChange={(event) => setDraft({ ...draft, vertical: event.target.value })}
+              placeholder="e.g. tuition centre, beauty clinic, home service"
+              value={draft.vertical}
+            />
+          </label>
+          <label>
+            Owner tone
+            <input
+              onChange={(event) => setDraft({ ...draft, tone: event.target.value })}
+              placeholder="e.g. warm, practical, direct"
+              value={draft.tone}
+            />
+          </label>
+        </div>
+
+        <div className="template-textareas">
           <label>
             Owner knowledge
             <textarea
@@ -350,122 +540,252 @@ function BuilderPage({ onIntro }: { onIntro: () => void }) {
               value={draft.escalationRules}
             />
           </label>
+        </div>
 
-          <div className="button-row">
-            <button className="primary-button" onClick={saveTemplate} type="button">
-              Save template
-            </button>
-            <button className="ghost-button" onClick={loadSample} type="button">
-              Use sample
-            </button>
+        <div className="button-row">
+          <button className="primary-button" onClick={saveTemplate} type="button">
+            <BookOpen size={16} />
+            Save template
+          </button>
+          <button className="ghost-button" onClick={loadSample} type="button">
+            <LayoutTemplate size={16} />
+            Use sample
+          </button>
+        </div>
+      </section>
+
+      <aside className="side-stack">
+        <section className="image-panel">
+          <img alt="Owner workspace" src={ownerHeroImage} />
+          <div>
+            <strong>{business.businessName || "A reusable owner expert"}</strong>
+            <span>One owner brain, one customer portal, one escalation loop.</span>
           </div>
         </section>
 
-        <section className="simple-panel user-flow">
-          <StepHeader
-            icon={<MessageSquareText size={18} />}
-            step="2"
-            title="Test user portal"
-            subtitle="Ask as a customer, prospect, or staff member."
+        <section className="workspace-panel compact-panel">
+          <PanelTitle
+            icon={<CheckCircle2 size={18} />}
+            title="Readiness"
+            description="The user portal unlocks after these are done."
           />
+          <SetupChecklist setupItems={setupItems} />
+          <button className="ghost-button wide" onClick={() => setActiveTab("ask")} type="button">
+            Preview Ask tab
+            <ArrowRight size={16} />
+          </button>
+        </section>
+      </aside>
+    </div>
+  );
+}
 
-          <div className={setupComplete ? "portal-mini ready" : "portal-mini"}>
-            <div className="portal-header">
-              <div className="portal-avatar">{business.businessName ? business.businessName.charAt(0) : "Z"}</div>
-              <div>
-                <strong>{business.businessName || "Your business expert"}</strong>
-                <span>{business.vertical || "Complete setup to unlock"}</span>
-              </div>
+function AskTab({
+  business,
+  consultations,
+  error,
+  isPending,
+  question,
+  sampleQuestions,
+  setActiveTab,
+  setQuestion,
+  setupComplete,
+  setupItems,
+  submitQuestion,
+  updateReviewState
+}: {
+  business: BusinessProfile;
+  consultations: ConsultationResult[];
+  error: boolean;
+  isPending: boolean;
+  question: string;
+  sampleQuestions: string[];
+  setActiveTab: (tab: BuilderTab) => void;
+  setQuestion: (question: string) => void;
+  setupComplete: boolean;
+  setupItems: SetupItem[];
+  submitQuestion: (question?: string) => void;
+  updateReviewState: (id: string, state: ConsultationReviewState) => void;
+}) {
+  return (
+    <div className="tab-content-grid ask-layout">
+      <section className="workspace-panel chat-panel">
+        <PanelTitle
+          icon={<MessageSquareText size={18} />}
+          title="User portal"
+          description="Ask as a customer, prospect, or staff member."
+        />
+
+        <div className={setupComplete ? "portal-stage ready" : "portal-stage"}>
+          <div className="portal-header">
+            <div className="portal-avatar">{business.businessName ? business.businessName.charAt(0) : "Z"}</div>
+            <div>
+              <strong>{business.businessName || "Your business expert"}</strong>
+              <span>{business.vertical || "Complete setup to unlock"}</span>
             </div>
-
-            {setupComplete ? (
-              <>
-                <div className="sample-row" aria-label="Sample questions">
-                  {(templateStatus === "sample" ? seed.sampleQuestions : genericQuestions).map((sample) => (
-                    <button
-                      className="sample-chip"
-                      key={sample}
-                      onClick={() => submitQuestion(sample)}
-                      type="button"
-                    >
-                      {sample}
-                    </button>
-                  ))}
-                </div>
-                <textarea
-                  aria-label="Ask the user portal"
-                  onChange={(event) => setQuestion(event.target.value)}
-                  placeholder="Ask the expert..."
-                  value={question}
-                />
-                <button
-                  className="primary-button wide"
-                  disabled={!question.trim() || consultMutation.isPending}
-                  onClick={() => submitQuestion()}
-                  type="button"
-                >
-                  <Send size={16} />
-                  {consultMutation.isPending ? "Asking..." : "Ask expert"}
-                </button>
-              </>
-            ) : (
-              <div className="locked-state">
-                <AlertTriangle size={22} />
-                <strong>Save the setup first.</strong>
-                <span>The user portal unlocks after identity, tone, knowledge, and escalation rules are complete.</span>
-              </div>
-            )}
           </div>
 
-          <div className="conversation-stack">
-            {consultMutation.isError ? (
-              <div className="error-banner">API call failed. Check the local backend.</div>
-            ) : null}
-            {consultations.length ? (
-              consultations.slice(0, 3).map((item) => (
-                <ConsultationCard
-                  consultation={item}
-                  key={item.id}
-                  onReviewChange={updateReviewState}
-                />
-              ))
-            ) : (
-              <div className="empty-state-box">
-                <strong>No test questions yet.</strong>
-                <p>Once the template is saved, ask one question to check the answer and escalation behavior.</p>
+          {setupComplete ? (
+            <>
+              <div className="sample-row" aria-label="Sample questions">
+                {sampleQuestions.map((sample) => (
+                  <button
+                    className="sample-chip"
+                    key={sample}
+                    onClick={() => submitQuestion(sample)}
+                    type="button"
+                  >
+                    {sample}
+                  </button>
+                ))}
               </div>
-            )}
-          </div>
-        </section>
+              <textarea
+                aria-label="Ask the user portal"
+                onChange={(event) => setQuestion(event.target.value)}
+                placeholder="Ask the expert..."
+                value={question}
+              />
+              <button
+                className="primary-button wide"
+                disabled={!question.trim() || isPending}
+                onClick={() => submitQuestion()}
+                type="button"
+              >
+                <Send size={16} />
+                {isPending ? "Asking..." : "Ask expert"}
+              </button>
+            </>
+          ) : (
+            <div className="locked-state">
+              <AlertTriangle size={22} />
+              <strong>Save the template first.</strong>
+              <span>Identity, tone, knowledge, and escalation rules must be complete.</span>
+              <button className="ghost-button" onClick={() => setActiveTab("template")} type="button">
+                Go to Template
+              </button>
+            </div>
+          )}
+        </div>
 
-        <aside className="simple-panel brief-flow">
-          <StepHeader
-            icon={<ClipboardList size={18} />}
-            step="3"
-            title="Owner brief"
-            subtitle="See what was answered, escalated, or missing."
+        <ConversationStack
+          consultations={consultations}
+          error={error}
+          onReviewChange={updateReviewState}
+        />
+      </section>
+
+      <aside className="side-stack">
+        <section className="workspace-panel compact-panel">
+          <PanelTitle
+            icon={<AlertTriangle size={18} />}
+            title="Owner guardrails"
+            description="The AI answers only inside the saved boundaries."
           />
+          <BriefList
+            title="Escalates when"
+            items={
+              business.escalationRules.length
+                ? business.escalationRules.map((rule) => rule.trigger)
+                : ["Refunds, discounts, safety, legal, and unclear decisions"]
+            }
+          />
+        </section>
+        <section className="workspace-panel compact-panel">
+          <PanelTitle
+            icon={<CheckCircle2 size={18} />}
+            title="Setup checklist"
+            description="Fix any missing setup before sharing."
+          />
+          <SetupChecklist setupItems={setupItems} />
+        </section>
+      </aside>
+    </div>
+  );
+}
 
-          <div className="brief-stats">
-            <Metric label="Answered" value={currentBrief.answeredCount.toString()} />
-            <Metric label="Escalated" value={currentBrief.escalatedCount.toString()} />
-          </div>
+function BriefTab({
+  brief,
+  consultations,
+  isRefreshing,
+  onRefresh,
+  setActiveTab,
+  setupItems,
+  updateReviewState
+}: {
+  brief: OwnerBrief;
+  consultations: ConsultationResult[];
+  isRefreshing: boolean;
+  onRefresh: () => void;
+  setActiveTab: (tab: BuilderTab) => void;
+  setupItems: SetupItem[];
+  updateReviewState: (id: string, state: ConsultationReviewState) => void;
+}) {
+  return (
+    <div className="tab-content-grid brief-layout">
+      <section className="workspace-panel brief-board">
+        <PanelTitle
+          icon={<ClipboardList size={18} />}
+          title="Owner brief"
+          description="See what was answered, escalated, or missing."
+        />
 
+        <p className="brief-summary">{brief.summary}</p>
+        <div className="brief-stats">
+          <Metric label="Answered" value={brief.answeredCount.toString()} />
+          <Metric label="Escalated" value={brief.escalatedCount.toString()} />
+        </div>
+
+        <div className="brief-columns">
           <BriefList title="Setup checklist" items={setupItems.map((item) => `${item.complete ? "Done" : "Todo"}: ${item.label}`)} />
-          <BriefList title="Knowledge gaps" items={currentBrief.knowledgeGaps} />
-          <BriefList title="Next updates" items={currentBrief.suggestedUpdates} />
+          <BriefList title="Knowledge gaps" items={brief.knowledgeGaps} />
+          <BriefList title="Next updates" items={brief.suggestedUpdates} />
+        </div>
 
-          <button
-            className="ghost-button wide"
-            onClick={() => briefMutation.mutate({ consultations })}
-            type="button"
-          >
-            <RefreshCcw className={briefMutation.isPending ? "spin-soft" : ""} size={16} />
+        <div className="button-row">
+          <button className="primary-button" onClick={onRefresh} type="button">
+            <RefreshCcw className={isRefreshing ? "spin-soft" : ""} size={16} />
             Refresh brief
           </button>
-        </aside>
+          <button className="ghost-button" onClick={() => setActiveTab("ask")} type="button">
+            Test another question
+          </button>
+        </div>
+      </section>
+
+      <aside className="workspace-panel compact-panel">
+        <PanelTitle
+          icon={<MessageSquareText size={18} />}
+          title="Latest activity"
+          description="Recent user questions and owner actions."
+        />
+        <ConversationStack
+          compact
+          consultations={consultations}
+          error={false}
+          onReviewChange={updateReviewState}
+        />
+      </aside>
+    </div>
+  );
+}
+
+function PanelTitle({
+  description,
+  icon,
+  title
+}: {
+  description: string;
+  icon: ReactNode;
+  title: string;
+}) {
+  return (
+    <div className="panel-title">
+      <div className="panel-icon">{icon}</div>
+      <div>
+        <h3>{title}</h3>
+        <p>{description}</p>
       </div>
-    </main>
+    </div>
   );
 }
 
@@ -487,31 +807,6 @@ function IntroStep({
   );
 }
 
-function StepHeader({
-  icon,
-  step,
-  subtitle,
-  title
-}: {
-  icon: ReactNode;
-  step: string;
-  subtitle: string;
-  title: string;
-}) {
-  return (
-    <div className="step-header">
-      <div className="step-number">{step}</div>
-      <div>
-        <div className="step-title-row">
-          {icon}
-          <h2>{title}</h2>
-        </div>
-        <p>{subtitle}</p>
-      </div>
-    </div>
-  );
-}
-
 function SetupProgress({ setupItems }: { setupItems: SetupItem[] }) {
   const done = setupItems.filter((item) => item.complete).length;
   const total = setupItems.length || 1;
@@ -519,7 +814,9 @@ function SetupProgress({ setupItems }: { setupItems: SetupItem[] }) {
   return (
     <div className="setup-progress">
       <strong>{Math.round((done / total) * 100)}%</strong>
-      <span>{done} of {setupItems.length} ready</span>
+      <span>
+        {done} of {setupItems.length} ready
+      </span>
       <div className="progress-track">
         <div style={{ width: `${(done / total) * 100}%` }} />
       </div>
@@ -527,17 +824,70 @@ function SetupProgress({ setupItems }: { setupItems: SetupItem[] }) {
   );
 }
 
+function SetupChecklist({ setupItems }: { setupItems: SetupItem[] }) {
+  return (
+    <div className="setup-checklist simple">
+      {setupItems.map((item) => (
+        <div className={item.complete ? "setup-item complete" : "setup-item"} key={item.label}>
+          {item.complete ? <CheckCircle2 size={15} /> : <AlertTriangle size={15} />}
+          <div>
+            <strong>{item.label}</strong>
+            <span>{item.hint}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ConversationStack({
+  compact = false,
+  consultations,
+  error,
+  onReviewChange
+}: {
+  compact?: boolean;
+  consultations: ConsultationResult[];
+  error: boolean;
+  onReviewChange: (id: string, state: ConsultationReviewState) => void;
+}) {
+  return (
+    <div className={compact ? "conversation-stack compact" : "conversation-stack"}>
+      {error ? <div className="error-banner">API call failed. Check the local backend.</div> : null}
+      {consultations.length ? (
+        consultations
+          .slice(0, compact ? 2 : 4)
+          .map((item) => (
+            <ConsultationCard
+              compact={compact}
+              consultation={item}
+              key={item.id}
+              onReviewChange={onReviewChange}
+            />
+          ))
+      ) : (
+        <div className="empty-state-box">
+          <strong>No test questions yet.</strong>
+          <p>Ask one question to check the answer and escalation behavior.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ConsultationCard({
+  compact = false,
   consultation,
   onReviewChange
 }: {
+  compact?: boolean;
   consultation: ConsultationResult;
   onReviewChange: (id: string, state: ConsultationReviewState) => void;
 }) {
   const isEscalated = consultation.status === "escalated";
 
   return (
-    <article className={`consultation-card ${isEscalated ? "escalated" : "answered"}`}>
+    <article className={`consultation-card ${isEscalated ? "escalated" : "answered"} ${compact ? "compact" : ""}`}>
       <div className="question-row">
         <div>
           <span className="role-label">{isEscalated ? "Escalation" : "Answered"}</span>
@@ -561,24 +911,28 @@ function ConsultationCard({
         </div>
       )}
 
-      <div className="chips">
-        {consultation.usedKnowledge.map((item) => (
-          <span key={item}>{item}</span>
-        ))}
-      </div>
+      {!compact ? (
+        <>
+          <div className="chips">
+            {consultation.usedKnowledge.map((item) => (
+              <span key={item}>{item}</span>
+            ))}
+          </div>
 
-      <div className="review-controls">
-        {(["new", "reviewed", "owner-action"] as ConsultationReviewState[]).map((state) => (
-          <button
-            className={consultation.reviewState === state ? "selected" : ""}
-            key={state}
-            onClick={() => onReviewChange(consultation.id, state)}
-            type="button"
-          >
-            {state.replace("-", " ")}
-          </button>
-        ))}
-      </div>
+          <div className="review-controls">
+            {(["new", "reviewed", "owner-action"] as ConsultationReviewState[]).map((state) => (
+              <button
+                className={consultation.reviewState === state ? "selected" : ""}
+                key={state}
+                onClick={() => onReviewChange(consultation.id, state)}
+                type="button"
+              >
+                {state.replace("-", " ")}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : null}
     </article>
   );
 }
@@ -607,6 +961,27 @@ function BriefList({ title, items }: { title: string; items: string[] }) {
       )}
     </div>
   );
+}
+
+function getTabMeta(tab: BuilderTab) {
+  if (tab === "ask") {
+    return {
+      title: "Ask",
+      description: "Preview the customer-facing expert without leaving the builder."
+    };
+  }
+
+  if (tab === "brief") {
+    return {
+      title: "Owner Brief",
+      description: "Review activity, escalation pressure, and missing knowledge."
+    };
+  }
+
+  return {
+    title: "Template",
+    description: "Capture the owner's knowledge and rules once, then test immediately."
+  };
 }
 
 function toDraft(business: BusinessProfile): BusinessDraft {

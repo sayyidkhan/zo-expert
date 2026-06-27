@@ -5,8 +5,8 @@ Localhost proof of concept for an AI consultation proxy for SME owners.
 Zo Expert starts as a blank owner-expert template. The flow is intentionally simple:
 
 - **Intro page:** `/intro` explains the concept and the expected user journey.
-- **Builder:** `/` captures the owner's knowledge, tests the user-facing expert,
-  and shows the owner brief in one screen.
+- **Tabbed builder:** `/` captures the owner's knowledge, tests the user-facing
+  expert, and shows the owner brief through Template, Ask, and Owner Brief tabs.
 
 The app answers safe questions in the owner's style, escalates risky questions,
 and generates an owner brief. A renovation SME sample can be loaded explicitly
@@ -15,9 +15,10 @@ for demo purposes, but the default state is an empty reusable template.
 ## Flow
 
 1. Fill the owner template with business identity, owner tone, knowledge, and
-   escalation rules.
-2. Ask a test question from the user portal panel.
-3. Review answered questions, escalations, knowledge gaps, and suggested updates.
+   escalation rules in the Template tab.
+2. Ask a test question from the Ask tab.
+3. Review answered questions, escalations, knowledge gaps, and suggested updates
+   in the Owner Brief tab.
 
 The user portal stays locked until the minimum owner template is complete.
 
