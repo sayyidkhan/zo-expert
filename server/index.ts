@@ -2,6 +2,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
 import OpenAI from "openai";
+import path from "node:path";
 import { demoSeed, emptyBrief } from "../src/data/demoSeed";
 import type {
   BriefRequest,
@@ -15,8 +16,9 @@ import type {
 dotenv.config();
 
 const app = express();
-const port = Number(process.env.API_PORT ?? 8787);
+const port = Number(process.env.PORT || process.env.API_PORT || 8787);
 const model = process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
+const distPath = path.resolve(process.cwd(), "dist");
 
 app.use(cors());
 app.use(express.json({ limit: "2mb" }));
@@ -185,8 +187,14 @@ app.post("/api/enrich", (_req, res) => {
   });
 });
 
+app.use(express.static(distPath));
+
+app.get(/^\/(?!api(?:\/|$)).*/, (_req, res) => {
+  res.sendFile(path.join(distPath, "index.html"));
+});
+
 app.listen(port, () => {
-  console.log(`Zo Expert API listening on http://localhost:${port}`);
+  console.log(`Zo Expert running on http://localhost:${port}`);
 });
 
 function buildFallbackConsultation(question: string | undefined, business: BusinessProfile): ConsultationResult {

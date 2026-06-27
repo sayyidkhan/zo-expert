@@ -1,47 +1,54 @@
 # Zo Expert
 
-Localhost proof of concept for an AI consultation proxy for SME owners.
+Zo Expert is an AI consultation proxy for SME owners. It lets an owner turn
+their business knowledge, voice, services, and escalation rules into a safe
+customer-facing expert that can answer routine questions and route risky or
+underspecified questions back to the owner.
 
-Zo Expert starts as a blank owner-expert template. The flow is intentionally simple:
+Private Zo handle: https://zo-expert-sayyidkhan.zo.computer
 
-- **Intro page:** `/intro` explains the concept and the expected user journey.
-- **Tabbed builder:** `/` captures the owner's knowledge, tests the user-facing
-  expert, and shows the owner brief through Template, Ask, and Owner Brief tabs.
+Public submission URL: pending until the `zo-expert` Zo Hosting site is switched
+to public. As of 2026-06-27, the private Zo handle redirects to Zo login, and
+`https://zo-expert-sayyidkhan.zocomputer.io` returns 404.
 
-The app answers safe questions in the owner's style, escalates risky questions,
-and generates an owner brief. A renovation SME sample can be loaded explicitly
-for demo purposes, but the default state is an empty reusable template.
+## Product Flow
 
-## Flow
-
-1. Fill the owner template with business identity, owner tone, knowledge, and
-   escalation rules in the Template tab.
-2. Ask a test question from the Ask tab.
-3. Review answered questions, escalations, knowledge gaps, and suggested updates
-   in the Owner Brief tab.
+1. Owner fills the template with business identity, tone, services, knowledge,
+   FAQs, policies, and escalation rules.
+2. Zo Expert builds an owner profile from that knowledge.
+3. A user asks a customer-facing question in the Ask tab.
+4. The app either answers safely from the supplied owner knowledge or escalates
+   to the owner with a suggested action.
+5. The Owner Brief tab summarizes answered questions, escalations, knowledge
+   gaps, and suggested updates.
 
 The user portal stays locked until the minimum owner template is complete.
 
 ## Stack
 
-- Vite + React + TypeScript
-- TanStack Query
-- Express local backend
-- OpenAI API when `OPENAI_API_KEY` is configured
-- Seed fallback responses when API keys are missing
+| Layer | Tech |
+| --- | --- |
+| Frontend | Vite, React, TypeScript |
+| State/data | TanStack Query |
+| Backend | Express |
+| AI | OpenAI API |
+| Optional enrichment | Exa API placeholder |
+| Deployment | Zo Computer Hosting |
 
-## Run
+## Local Run
 
 ```bash
 npm install
 npm run dev
 ```
 
-Intro: http://127.0.0.1:5173/intro
+Local URLs:
 
+```text
+Intro:   http://127.0.0.1:5173/intro
 Builder: http://127.0.0.1:5173
-
-Backend: http://localhost:8787
+API:     http://localhost:8787
+```
 
 ## Run On Phone Without Deploying
 
@@ -69,14 +76,142 @@ http://<mac-tailscale-ip>:5173/intro
 
 ## Environment
 
-Copy `.env.example` to `.env` if needed.
+Copy `.env.example` to `.env`:
+
+```bash
+cp .env.example .env
+```
+
+Required for live AI behavior:
 
 ```bash
 OPENAI_API_KEY=
+```
+
+Optional:
+
+```bash
 EXA_API_KEY=
+OPENAI_MODEL=gpt-4.1-mini
+```
+
+Local backend defaults:
+
+```bash
 API_PORT=8787
 VITE_API_BASE_URL=http://localhost:8787
 ```
 
-OpenAI is optional for the demo path. Without keys, the backend returns
-deterministic seed/fallback consultation answers and escalations.
+For production on Zo Computer, leave `VITE_API_BASE_URL` empty so the frontend
+calls the same deployed origin as `/api/*`.
+
+## Production Build
+
+```bash
+npm run build
+npm run start
+```
+
+`npm run start` serves both:
+
+```text
+/        Built Vite frontend from dist/
+/api/*   Express API routes
+```
+
+Zo Computer should inject `PORT`. The server falls back to `API_PORT`, then
+`8787` for local runs.
+
+## Zo Computer Deployment
+
+Expected workspace layout:
+
+```text
+/home/workspace/hackathon/suphackathon2026/
+|-- zo-relationship-mapper/
+`-- zo-expert/
+```
+
+`zo-expert` app directory:
+
+```text
+/home/workspace/hackathon/suphackathon2026/zo-expert
+```
+
+Zo Hosting service command:
+
+```bash
+cd /home/workspace/hackathon/suphackathon2026/zo-expert
+PORT=8000 bash scripts/zo-deploy.sh
+```
+
+The deploy script:
+
+- pulls the latest `main` from GitHub
+- checks that `.env` exists
+- installs dependencies with `npm ci`
+- clears `VITE_API_BASE_URL` for same-origin production calls
+- builds the frontend
+- starts the Express server
+
+## Sync Deploy From Zo Terminal
+
+Use this helper when the service is already created and you want to pull, build,
+and restart from the Zo terminal:
+
+```bash
+cd /home/workspace/hackathon/suphackathon2026/zo-expert
+bash scripts/zo-restart.sh
+```
+
+Logs are written to:
+
+```text
+logs/zo-deploy.log
+```
+
+To watch logs:
+
+```bash
+tail -f logs/zo-deploy.log
+```
+
+To only sync and build without starting:
+
+```bash
+ZO_SYNC_ONLY=1 bash scripts/zo-deploy.sh
+```
+
+## Health Check
+
+Local:
+
+```bash
+curl http://localhost:8787/api/health
+```
+
+Production, after the Zo Hosting site is public:
+
+```bash
+curl https://<public-zo-expert-url>/api/health
+```
+
+Expected response shape:
+
+```json
+{
+  "ok": true,
+  "openaiConfigured": true,
+  "exaConfigured": false
+}
+```
+
+## Repository
+
+GitHub: https://github.com/sayyidkhan/zo-expert
+
+Set the GitHub homepage only after the public Zo Hosting URL is enabled:
+
+```bash
+gh repo edit sayyidkhan/zo-expert --homepage https://<public-zo-expert-url>
+```
