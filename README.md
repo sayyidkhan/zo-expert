@@ -2,16 +2,24 @@
 
 Localhost proof of concept for an AI consultation proxy for SME owners.
 
-Zo Expert starts as a blank owner-expert template. The app has two main parts:
+Zo Expert starts as a blank owner-expert template. The flow is intentionally simple:
 
-- **Admin workspace:** the business owner defines business context, tone,
-  services, FAQs, policies, and escalation rules.
-- **User portal:** customers, prospects, or staff ask questions through a simple
-  portal once the admin setup is complete.
+- **Intro page:** `/intro` explains the concept and the expected user journey.
+- **Builder:** `/` captures the owner's knowledge, tests the user-facing expert,
+  and shows the owner brief in one screen.
 
 The app answers safe questions in the owner's style, escalates risky questions,
 and generates an owner brief. A renovation SME sample can be loaded explicitly
 for demo purposes, but the default state is an empty reusable template.
+
+## Flow
+
+1. Fill the owner template with business identity, owner tone, knowledge, and
+   escalation rules.
+2. Ask a test question from the user portal panel.
+3. Review answered questions, escalations, knowledge gaps, and suggested updates.
+
+The user portal stays locked until the minimum owner template is complete.
 
 ## Stack
 
@@ -28,7 +36,9 @@ npm install
 npm run dev
 ```
 
-Frontend: http://127.0.0.1:5173
+Intro: http://127.0.0.1:5173/intro
+
+Builder: http://127.0.0.1:5173
 
 Backend: http://localhost:8787
 
@@ -48,6 +58,13 @@ http://192.168.x.x:5173/
 
 Open that URL from your phone browser. If the page does not load, check macOS
 Firewall or make sure both devices are on the same network/VPN state.
+
+If your phone and Mac are on different networks, turn on Tailscale on both
+devices and open the same Vite port through the Mac's Tailscale IP:
+
+```text
+http://<mac-tailscale-ip>:5173/intro
+```
 
 ## Environment
 

@@ -34,6 +34,7 @@ export type BusinessProfile = {
   summary: string;
   targetCustomer: string;
   tone: string;
+  knowledgeText: string;
   voiceRules: string[];
   services: Service[];
   policies: Policy[];

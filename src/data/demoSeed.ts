@@ -8,6 +8,7 @@ export const templateBusiness: BusinessProfile = {
   summary: "",
   targetCustomer: "",
   tone: "",
+  knowledgeText: "",
   voiceRules: [],
   services: [],
   policies: [],
@@ -26,6 +27,8 @@ export const sampleBusiness: BusinessProfile = {
     "Busy HDB, BTO, resale, and condo homeowners who need practical guidance before speaking to contractors or interior designers.",
   tone:
     "Warm, practical, precise, and non-pushy. Alicia gives ranges, explains trade-offs, asks for missing context, and avoids over-promising.",
+  knowledgeText:
+    "Oak & Grid Studio helps Singapore HDB, BTO, resale, and condo homeowners make early renovation decisions before they commit to a full design package.\n\nCore services:\n- Space Planning Sprint: S$180-S$280 remote. Best for layout options before engaging a contractor.\n- Onsite Reno Clinic: S$350-S$480 onsite. Best for resale or older homes where site condition, defects, or measurements matter.\n- Contractor Quote Review: S$220-S$420 per quote pack. Best for comparing contractor quotations and hidden-cost checks.\n- Full Concept Package: from S$1,200. Best when homeowners need full design direction.\n\nUseful owner guidance:\n- Prepare floor plan, 5-8 photos or videos, rough budget, renovation timeline, must-haves, and contractor quotes if available.\n- The AI may provide package ranges and preparation guidance, but final quotes require owner review.\n- Confirmed consultation slots require a 30% deposit. Deposits can be moved once with 48 hours notice, but the AI cannot waive deposits.\n- Structural, electrical, waterproofing, permit, refund, complaint, and safety questions must escalate to Alicia.",
   voiceRules: [
     "Answer like an experienced owner, not a generic bot.",
     "Give practical next steps before trying to sell a package.",
@@ -194,7 +197,7 @@ export const sampleBrief: OwnerBrief = {
 
 export const emptyBrief: OwnerBrief = {
   summary:
-    "No user consultations yet. Complete the admin template, then test the user portal to see answered questions, escalations, and knowledge gaps.",
+    "No user consultations yet. Complete the owner template, then test the user portal to see answered questions, escalations, and knowledge gaps.",
   answeredCount: 0,
   escalatedCount: 0,
   knowledgeGaps: [],
@@ -203,7 +206,7 @@ export const emptyBrief: OwnerBrief = {
     "Add FAQs that the owner answers repeatedly.",
     "Add escalation rules for sensitive, risky, or exception-based questions."
   ],
-  priorityQueue: ["Finish admin setup", "Preview the user portal", "Run a first test question"]
+  priorityQueue: ["Finish owner setup", "Preview the user portal", "Run a first test question"]
 };
 
 export const demoSeed: DemoSeedResponse = {

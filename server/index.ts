@@ -38,12 +38,13 @@ app.get("/api/demo/seed", (_req, res) => {
 });
 
 app.post("/api/owner-profile/build", async (req, res) => {
-  const business = req.body as BusinessProfile;
+  const business = normalizeBusinessProfile(req.body as BusinessProfile);
 
   const fallback: OwnerProfileResponse = {
     ownerProfile: {
       businessSummary:
         business.summary ||
+        business.knowledgeText ||
         "Template is not complete yet. Add business context before building the owner profile.",
       voiceRules: business.voiceRules?.length ? business.voiceRules : [],
       serviceRules: business.services.map(
@@ -85,7 +86,7 @@ app.post("/api/owner-profile/build", async (req, res) => {
 
 app.post("/api/consult", async (req, res) => {
   const request = req.body as ConsultRequest;
-  const business = request.knowledgeBase ?? demoSeed.business;
+  const business = normalizeBusinessProfile(request.knowledgeBase ?? demoSeed.business);
   const fallback = buildFallbackConsultation(request.question, business);
 
   if (!isTemplateReady(business)) {
@@ -129,7 +130,7 @@ app.post("/api/consult", async (req, res) => {
 
 app.post("/api/escalation/check", (req, res) => {
   const request = req.body as ConsultRequest;
-  const business = request.knowledgeBase ?? demoSeed.business;
+  const business = normalizeBusinessProfile(request.knowledgeBase ?? demoSeed.business);
   const result = buildFallbackConsultation(request.question, business);
 
   res.json({
@@ -201,9 +202,9 @@ function buildFallbackConsultation(question: string | undefined, business: Busin
       status: "escalated",
       question: normalizedQuestion,
       answer: null,
-      reason: "The admin template is not complete enough to answer user questions.",
+      reason: "The owner template is not complete enough to answer user questions.",
       suggestedOwnerAction:
-        "Complete business identity, owner voice, services, FAQs, policies, and escalation rules before publishing the user portal.",
+        "Complete business identity, owner tone, owner knowledge, and escalation rules before sharing the user portal.",
       safeDraft:
         "This expert is not ready yet. The business owner still needs to finish the setup before I can answer accurately.",
       usedKnowledge: ["Template readiness check"],
@@ -307,12 +308,16 @@ function buildFallbackConsultation(question: string | undefined, business: Busin
   }
 
   usedKnowledge.push("Business summary", "Owner tone rules");
+  const knowledgeText = business.knowledgeText ?? "";
+  const knowledgeExcerpt = knowledgeText
+    ? `Based on the saved owner knowledge: ${knowledgeText.slice(0, 420)}${knowledgeText.length > 420 ? "..." : ""}`
+    : "";
   return {
     id,
     status: "answered",
     question: normalizedQuestion,
     answer:
-      `I can help with a first pass from ${business.businessName}'s current knowledge base. Please share your situation, what you are trying to decide, timing, budget or constraints, and any relevant files. I will answer from the saved admin rules and escalate anything that needs ${business.ownerName || "the owner"}.`,
+      `${knowledgeExcerpt || `I can help with a first pass from ${business.businessName}'s current knowledge base.`} Please share your situation, what you are trying to decide, timing, budget or constraints, and any relevant files. I will answer from the saved owner rules and escalate anything that needs ${business.ownerName || "the owner"}.`,
     usedKnowledge,
     confidence: "medium",
     needsEscalation: false,
@@ -326,7 +331,7 @@ function matchEscalation(lower: string, business: BusinessProfile) {
   const customEscalation = business.escalationRules.find((rule) => overlapScore(lower, rule.trigger) >= 2);
   if (customEscalation) {
     return {
-      reason: `This matches an admin escalation rule: ${customEscalation.trigger}`,
+      reason: `This matches an owner escalation rule: ${customEscalation.trigger}`,
       ownerAction: customEscalation.ownerAction,
       safeDraft:
         "I need the owner to review this before giving a firm answer. Please share the relevant context, preferred outcome, and any deadlines so the owner can respond properly.",
@@ -486,11 +491,9 @@ function isTemplateReady(business: BusinessProfile) {
     business.businessName &&
       business.ownerName &&
       business.vertical &&
-      business.summary &&
+      (business.summary || business.knowledgeText) &&
       business.tone &&
-      business.services.length &&
-      business.faqs.length &&
-      business.policies.length &&
+      (business.knowledgeText || business.services.length || business.faqs.length || business.policies.length) &&
       business.escalationRules.length
   );
 }
@@ -501,17 +504,11 @@ function getTemplateGaps(business: BusinessProfile) {
   if (!business.businessName || !business.ownerName || !business.vertical) {
     gaps.push("Business identity");
   }
-  if (!business.summary || !business.tone) {
-    gaps.push("Owner voice and business summary");
+  if (!business.tone) {
+    gaps.push("Owner tone");
   }
-  if (!business.services.length) {
-    gaps.push("Services or offers");
-  }
-  if (!business.faqs.length) {
-    gaps.push("FAQs");
-  }
-  if (!business.policies.length) {
-    gaps.push("Policies");
+  if (!business.summary && !business.knowledgeText) {
+    gaps.push("Owner knowledge");
   }
   if (!business.escalationRules.length) {
     gaps.push("Escalation rules");
@@ -598,4 +595,22 @@ function parseJson<T>(content: string | null | undefined): T | null {
 
 function unique(values: string[]) {
   return Array.from(new Set(values));
+}
+
+function normalizeBusinessProfile(business?: BusinessProfile | null): BusinessProfile {
+  const source = business ?? demoSeed.business;
+
+  return {
+    ...demoSeed.business,
+    ...source,
+    summary: source.summary ?? "",
+    targetCustomer: source.targetCustomer ?? "",
+    tone: source.tone ?? "",
+    knowledgeText: source.knowledgeText ?? source.summary ?? "",
+    voiceRules: source.voiceRules ?? [],
+    services: source.services ?? [],
+    policies: source.policies ?? [],
+    faqs: source.faqs ?? [],
+    escalationRules: source.escalationRules ?? []
+  };
 }
